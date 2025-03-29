@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nominatim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nominatim
+  template:
+    metadata:
+      labels:
+        app: nominatim
+    spec:
+      containers:
+      - name: nominatim
+        image: peterevans/nominatim-k8s:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "your_postgres_password" # Substitua pela senha desejada
+        - name: POSTGRES_USER
+          value: "your_postgres_user"     # Substitua pelo usuário desejado
+        - name: POSTGRES_DB
+          value: "nominatim"             # Nome do banco de dados
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nominatim-service
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: kleidir-nominatim
+spec:
+  selector:
+    app: nominatim
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer

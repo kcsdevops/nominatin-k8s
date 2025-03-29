@@ -1,0 +1,135 @@
+Documento Técnico: Deploy do Nominatim no AKS com HTTPS
+Sumário
+Introdução
+Requisitos
+Configuração do Cluster AKS
+Deploy do Nominatim
+Configuração do Deployment e Service
+Configuração do Ingress com HTTPS
+Segurança
+Testes e Validação
+Conclusão
+1. Introdução
+Este documento técnico descreve o processo de deploy da aplicação Nominatim no Azure Kubernetes Service (AKS) com suporte a HTTPS usando o Let's Encrypt. O objetivo é garantir que a aplicação esteja acessível de forma segura por meio de um DNS público.
+
+2. Requisitos
+Antes de iniciar, certifique-se de que os seguintes requisitos estão atendidos:
+
+Conta no Azure com permissões para criar recursos.
+Azure CLI instalado e configurado.
+Kubernetes CLI (kubectl) instalado.
+Cluster AKS configurado e funcionando.
+Domínio público configurado (neste caso, kleidir-nominatim.eastus.cloudapp.azure.com).
+3. Configuração do Cluster AKS
+Passo 1: Criar o Cluster AKS
+Execute os comandos abaixo para criar um cluster AKS econômico:
+
+az group create --name MyResourceGroup --location eastus
+az aks create \
+  --resource-group MyResourceGroup \
+  --name MyAKSCluster \
+  --node-count 1 \
+  --node-vm-size Standard_B2s \
+  --enable-managed-identity \
+  --generate-ssh-keys
+az aks get-credentials --resource-group MyResourceGroup --name MyAKSCluster
+4. Deploy do Nominatim
+4.1 Configuração do Deployment e Service
+Crie o arquivo nominatim-deployment.yaml com o seguinte conteúdo:
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nominatim
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: nominatim
+  template:
+    metadata:
+      labels:
+        app: nominatim
+    spec:
+      containers:
+      - name: nominatim
+        image: peterevans/nominatim-k8s:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: POSTGRES_PASSWORD
+          value: "your_postgres_password"
+        - name: POSTGRES_USER
+          value: "your_postgres_user"
+        - name: POSTGRES_DB
+          value: "nominatim"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nominatim-service
+  annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: kleidir-nominatim
+spec:
+  selector:
+    app: nominatim
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 8080
+  type: LoadBalancer
+Aplique o arquivo:
+
+kubectl apply -f nominatim-deployment.yaml
+Verifique o serviço:
+
+kubectl get services
+4.2 Configuração do Ingress com HTTPS
+Crie o arquivo nominatim-ingress.yaml com o seguinte conteúdo:
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nominatim-ingress
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - kleidir-nominatim.eastus.cloudapp.azure.com
+    secretName: nominatim-tls
+  rules:
+  - host: kleidir-nominatim.eastus.cloudapp.azure.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: nominatim-service
+            port:
+              number: 80
+Aplique o arquivo:
+
+kubectl apply -f nominatim-ingress.yaml
+5. Segurança
+HTTPS: O Ingress foi configurado para usar HTTPS com certificados TLS gerados automaticamente pelo Let's Encrypt.
+Segurança do Cluster: O cluster AKS foi configurado com identidades gerenciadas para evitar o uso de credenciais explícitas.
+Banco de Dados: Certifique-se de que as credenciais do banco de dados estão protegidas e não expostas publicamente.
+6. Testes e Validação
+Passo 1: Verifique o DNS
+Certifique-se de que o DNS público está resolvendo corretamente para o IP do serviço:
+
+nslookup kleidir-nominatim.eastus.cloudapp.azure.com
+Passo 2: Teste o Acesso
+Acesse a aplicação no navegador:
+
+https://kleidir-nominatim.eastus.cloudapp.azure.com
+Passo 3: Verifique os Logs
+Se houver problemas, verifique os logs do pod:
+
+kubectl logs <nome-do-pod>
+7. Conclusão
+Este documento descreveu o processo completo de deploy da aplicação Nominatim no AKS com suporte a HTTPS. A configuração garante que a aplicação esteja acessível de forma segura por meio de um DNS público.
+
