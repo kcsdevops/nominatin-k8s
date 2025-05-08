@@ -1,0 +1,10 @@
+Explicação:
+vCore:
+A arquitetura vCore oferece mais flexibilidade e controle sobre os recursos de computação, o que pode ser útil para aplicações que exigem muito poder de processamento, como o Nominatim, que pode lidar com grandes volumes de dados geográficos. 
+
+DTU: Não recomendo
+O modelo DTU (Database Transaction Unit) é mais simples e pré-configurado, mas pode não ser a melhor opção para aplicações que exigem muito desempenho ou escalabilidade. 
+
+
+API do MongoDB:
+O Azure Cosmos DB oferece diferentes APIs, incluindo a API do MongoDB, que permite trabalhar com dados no formato BSON do MongoDB. O Nominatim, sendo uma biblioteca para geocodificação, se beneficia dessa compatibilidade usando o VCORE. 
